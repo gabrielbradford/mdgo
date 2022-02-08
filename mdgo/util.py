@@ -361,6 +361,26 @@ def angle(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> np.floating:
     angle_in_radian = np.arccos(cosine_angle)
     return np.degrees(angle_in_radian)
 
+def create_position_arrays(u, anions, cations, time_array):
+    """
+    Creates an array containing the positions of all cations and anions over time.
+    :param u: MDAnalysis universe
+    :param anions: MDAnalysis AtomGroup containing all anions (assumes anions are single atoms)
+    :param cations: MDAnalysis AtomGroup containing all cations (assumes cations are single atoms)
+    :param times: array[float], times at which position data was collected in the simulation
+    :return anion_positions, cation_positions: array[float,float,float], array with all
+    cation/anion positions. Indices correspond to time, ion index, and spatial dimension
+    (x,y,z), respectively
+    """
+    time = 0
+    anion_positions = np.zeros((len(time_array), len(anions), 3))
+    cation_positions = np.zeros((len(time_array), len(cations), 3))
+    for ts in u.trajectory:
+        anion_positions[time, :, :] = anions.positions
+        cation_positions[time, :, :] = cations.positions
+        time += 1
+    return anion_positions, cation_positions
+
 
 def mass_to_name(masses: np.ndarray) -> np.ndarray:
     """
