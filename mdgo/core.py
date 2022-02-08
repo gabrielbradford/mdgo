@@ -6,9 +6,10 @@
 This module implements two core class MdRun and MdJob
 for molecular dynamics simulation analysis and job setup.
 """
-from __future__ import annotations
+#from __future__ import annotations
 from typing import Union, Dict, Tuple, List, Optional
 import MDAnalysis
+from MDAnalysis.coordinates.memory import MemoryReader
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -77,6 +78,7 @@ class MdRun:
         self,
         wrapped_run: Universe,
         unwrapped_run: Universe,
+        #volume: float,
         nvt_start: int,
         time_step: float,
         name: str,
@@ -130,19 +132,20 @@ class MdRun:
             self.cond_array = self.get_cond_array()
         else:
             self.cond_array = None
-        self.init_x = self.get_init_dimension()[0]
-        self.init_y = self.get_init_dimension()[1]
-        self.init_z = self.get_init_dimension()[2]
+        self.init_x = self.wrapped_run.trajectory[0].dimensions[0]
+        self.init_y = self.wrapped_run.trajectory[0].dimensions[1]
+        self.init_z = self.wrapped_run.trajectory[0].dimensions[2]
         self.init_v = self.init_x * self.init_y * self.init_z
-        self.nvt_x = self.get_nvt_dimension()[0]
-        self.nvt_y = self.get_nvt_dimension()[1]
-        self.nvt_z = self.get_nvt_dimension()[2]
-        self.nvt_v = self.nvt_x * self.nvt_y * self.nvt_z
+        #self.nvt_x = self.wrapped_run.trajectory[-1].dimensions[0]
+        #self.nvt_y = self.wrapped_run.trajectory[-1].dimensions[1]
+        #self.nvt_z = self.wrapped_run.trajectory[-1].dimensions[2]
+        #self.nvt_v = self.nvt_x * self.nvt_y * self.nvt_z
+        self.nvt_v = self.init_v
         gas_constant = 8.314
-        temp = 298.15
+        #temp = 298.15
         faraday_constant_2 = 96485 * 96485
         self.c = (self.num_cation / (self.nvt_v * 1e-30)) / (6.022 * 1e23)
-        self.d_to_sigma = self.c * faraday_constant_2 / (gas_constant * temp)
+        self.d_to_sigma = self.c * faraday_constant_2 / (gas_constant * self.temp)
         self.units = units
 
     @classmethod
@@ -189,6 +192,70 @@ class MdRun:
         wrapped_run = MDAnalysis.Universe(data_dir, wrapped_dir, format="LAMMPS")
         unwrapped_run = MDAnalysis.Universe(data_dir, unwrapped_dir, format="LAMMPS")
 
+        return cls(
+            wrapped_run,
+            unwrapped_run,
+            nvt_start,
+            time_step,
+            name,
+            select_dict=select_dict,
+            res_dict=res_dict,
+            cation_name=cation_name,
+            anion_name=anion_name,
+            cation_charge=cation_charge,
+            anion_charge=anion_charge,
+            temperature=temperature,
+            cond=cond,
+            units=units,
+        )
+    
+    
+    @classmethod
+    def from_numpy(
+        cls,
+        data_file: str,
+        wrapped_coords: str,
+        unwrapped_coords: str,
+        dimensions: np.ndarray,
+        nvt_start: int,
+        time_step: float,
+        name: str,
+        select_dict: Optional[Dict[str, str]] = None,
+        res_dict: Optional[Dict[str, str]] = None,
+        cation_name: str = "cation",
+        anion_name: str = "anion",
+        cation_charge: float = 1,
+        anion_charge: float = -1,
+        temperature: float = 298.15,
+        cond: bool = True,
+        units: str = "real",
+    ):
+        """
+        Constructor from lammps data file and wrapped and unwrapped trajectory dcd file.
+
+        Args:
+            data_dir: Path to the data file.
+            wrapped_dir: Path to the wrapped numpy file.
+            unwrapped_dir: Path to the unwrapped numpy file.
+            nvt_start: NVT start time step.
+            time_step: LAMMPS timestep in ps.
+            name: Name of the MD run.
+            select_dict: A dictionary of species selection.
+            res_dict: A dictionary of resnames.
+            cation_name: Name of cation. Default to "cation".
+            anion_name: Name of anion. Default to "anion".
+            cation_charge: Charge of cation. Default to 1.
+            anion_charge: Charge of anion. Default to 1.
+            temperature: Temperature of the MD run. Default to 298.15.
+            cond: Whether to calculate conductivity MSD. Default to True.
+            units: unit system (currently 'real' and 'lj' are supported)
+        """
+        if res_dict is None:
+            res_dict = res_dict_from_datafile(data_file)
+        wrapped_run = MDAnalysis.Universe(data_file, wrapped_coords, format=MemoryReader)
+        unwrapped_run = MDAnalysis.Universe(data_file, unwrapped_coords, format=MemoryReader)
+        wrapped_run.dimensions = dimensions
+        
         return cls(
             wrapped_run,
             unwrapped_run,
@@ -282,7 +349,7 @@ class MdRun:
         self,
         start: int = -1,
         end: int = -1,
-        *runs: MdRun,
+        *runs,#: MdRun,
         reference: bool = True,
     ):
         """Plots the conductivity MSD as a function of time.
@@ -795,7 +862,7 @@ class MdRun:
         )
         return free_array, attach_array
 
-    def get_d(self, msd_array: np.ndarray, start: int, stop: int, percentage: float = 1, species: str = "cation"):
+    def get_d(self, msd_array: np.ndarray = None, start: int = 0, stop: int = -1, percentage: float = 1, species: str = "cation"):
         """Prints the self-diffusion coefficient (in m^2/s) of the species.
         Prints the Nernst-Einstein conductivity (in mS/cm) if it's the cation.
 
@@ -809,6 +876,11 @@ class MdRun:
         a2 = 1e-20
         ps = 1e-12
         s_m_to_ms_cm = 10
+        
+        if msd_array is None:
+            msd = self.get_msd_all(species=species)
+            start, end, beta = choose_msd_fitting_region(msd, self.time_array[1:])
+        
         if percentage != 1:
             d = (msd_array[start] - msd_array[stop]) / (start - stop) / self.time_step / 6 * a2 / ps
             sigma = percentage * d * self.d_to_sigma * s_m_to_ms_cm
@@ -821,6 +893,31 @@ class MdRun:
             print("Diffusivity of all " + species + ":", d, "m^2/s")
             if species.lower() == "cation" or species.lower() == "li":
                 print("NE Conductivity of all " + species + ":", sigma, "mS/cm")
+                
+        return d
+    
+    
+    def get_D_and_Dlength(self, center_atom: str = 'cation', coord_atom: str = 'poly-O', coord_dist: float = 4):
+        """Returns the self-diffusion coefficient and diffusion lenth for the center atom coordinated
+        with the coord_atom
+        
+        Args:
+            center_atom: center atom that will coordinate
+            coord_atom: atom that coordinates around center atom        
+        """
+        a = 1e-10
+        ps = 1e-12
+        
+        dist_dict = {coord_atom:coord_dist}
+        times,acf = self.get_neighbor_corr(distance_dict=dist_dict, run_start=0, run_end=len(self.time_array))
+        rtimes = self.get_residence_time(times, acf, cutoff_time=len(times), plot=False)
+        tau = rtimes[coord_atom]
+
+        D = self.get_d(species=center_atom)
+        D_length = np.sqrt(6*D*tau*ps)/a
+        
+        return D_length, tau
+    
 
     def get_neighbor_corr(
         self,
@@ -852,7 +949,7 @@ class MdRun:
         )
 
     def get_residence_time(
-        self, times: np.ndarray, acf_avg_dict: Dict[str, np.ndarray], cutoff_time: int
+        self, times: np.ndarray, acf_avg_dict: Dict[str, np.ndarray], cutoff_time: int, plot: bool = False
     ) -> Dict[str, np.floating]:
         """Calculates the residence time of selected species around cation
 
@@ -864,7 +961,7 @@ class MdRun:
         Return:
              The residence time of each species in a dict.
         """
-        return fit_residence_time(times, acf_avg_dict, cutoff_time, self.time_step)
+        return fit_residence_time(times, acf_avg_dict, cutoff_time, self.time_step, plot)
 
     def get_neighbor_trj(
         self,
@@ -969,7 +1066,7 @@ class MdRun:
         cool: int = 0,
         binding_site: str = "anion",
         center_atom: str = "cation",
-        duplicate_run: Optional[List[MdRun]] = None,
+        #duplicate_run: Optional[List[MdRun]] = None,
     ) -> Dict[str, Dict[str, Union[int, np.ndarray]]]:
         """Calculates the coordination number evolution of species around ``center_atom`` as a function of time,
         the coordination numbers are averaged over all time steps around events when the center_atom

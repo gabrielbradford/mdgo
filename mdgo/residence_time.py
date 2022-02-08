@@ -171,6 +171,7 @@ def fit_residence_time(
     acf_avg_dict: Dict[str, np.ndarray],
     cutoff_time: int,
     time_step: float,
+    plot: bool = False,
 ) -> Dict[str, np.floating]:
     """
     Use the ACF to fit the residence time (Exponential decay constant).
@@ -199,27 +200,29 @@ def fit_residence_time(
             times[:cutoff_time],
             acf_avg_norm[kw][:cutoff_time],
             p0=(1, 1e-4, 0),
+            maxfev=5000
         )
         tau[kw] = 1 / popt[kw][1]  # ps
 
-    # Plot ACFs
-    colors = ["b", "g", "r", "c", "m", "y"]
-    line_styles = ["-", "--", "-.", ":"]
-    for i, kw in enumerate(species_list):
-        plt.plot(times, acf_avg_norm[kw], label=kw, color=colors[i])
-        plt.plot(
-            np.linspace(0, cutoff_time * time_step, cutoff_time),
-            exponential_func(np.linspace(0, cutoff_time * time_step, cutoff_time), *popt[kw]),
-            line_styles[i],
-            color="k",
-            label=kw + " Fit",
-        )
+    if plot:
+        # Plot ACFs
+        colors = ["b", "g", "r", "c", "m", "y"]
+        line_styles = ["-", "--", "-.", ":"]
+        for i, kw in enumerate(species_list):
+            plt.plot(times, acf_avg_norm[kw], label=kw, color=colors[i])
+            plt.plot(
+                times,
+                exponential_func(times, *popt[kw]),
+                line_styles[i],
+                color="k",
+                label=kw + " Fit",
+            )
 
-    plt.xlabel("Time (ps)")
-    plt.legend()
-    plt.ylabel("Neighbor Auto-correlation Function")
-    plt.ylim(0, 1)
-    plt.xlim(0, cutoff_time * time_step)
-    plt.show()
+        plt.xlabel("Time (ps)")
+        plt.legend()
+        plt.ylabel("Neighbor Auto-correlation Function")
+        plt.ylim(0, 1)
+        plt.xlim(0, cutoff_time * time_step)
+        plt.show()
 
     return tau
