@@ -24,8 +24,9 @@ from mdgo.util import (
     res_dict_from_select_dict,
     res_dict_from_datafile,
     select_dict_from_resname,
+    create_position_arrays
 )
-from mdgo.conductivity import calc_cond_msd, conductivity_calculator, choose_msd_fitting_region, get_beta
+from mdgo.conductivity import calc_cond_msd, conductivity_calculator, choose_msd_fitting_region, get_beta, get_slope, compute_all_Lij
 from mdgo.coordination import (
     concat_coord_array,
     num_of_neighbor,
@@ -917,6 +918,35 @@ class MdRun:
         D_length = np.sqrt(6*D*tau*ps)/a
         
         return D_length, tau
+    
+    
+    def get_onsager_coefs(self):
+        """Return list of Onsager coefficients for an electrolyte system. 
+        List order: L++self, L--self, L++distinct, L--distinct, L+-
+
+        """
+        kb = 1.3807e-23  #J K-1
+        times = self.time_array * 1e-12 #ps
+        
+        #get unwrapped cations and anions
+        cations = self.unwrapped_run.select_atoms(self.select_dict['cation'])
+        anions = self.unwrapped_run.select_atoms(self.select_dict['anion'])             
+        anion_positions, cation_positions = create_position_arrays(self.unwrapped_run, anions, cations, self.time_array)
+        
+        #units of 1/(J-cm)
+        msds_all = compute_all_Lij(cation_positions, anion_positions, times, self.nvt_v, kb*self.temp)
+
+        Ls = []
+        for i, msd in enumerate(msds_all):
+            start, end, beta = choose_msd_fitting_region(msd, times)
+            l = get_slope(msd, start, end, times)
+            if i == 2:
+                l = l - Ls[0]
+            if i == 3:
+                l = l - Ls[1]
+            Ls.append(l)
+            
+        return Ls
     
 
     def get_neighbor_corr(
