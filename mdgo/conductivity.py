@@ -129,7 +129,7 @@ def calc_cond_msd(
     anion_list = anions.split("residue")
     # compute sum over all charges and positions
     qr = []
-    for ts in tqdm(u.trajectory[run_start:]):
+    for ts in u.trajectory[run_start:]:
         qr_temp = np.zeros(3)
         for anion in anion_list:
             qr_temp += anion.center_of_mass() * anion_charge

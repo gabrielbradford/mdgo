@@ -562,7 +562,7 @@ class MdRun:
         """
         nvt_run = self.wrapped_run
         center_atoms = nvt_run.select_atoms(self.select_dict.get(center_atom))
-        for atom in tqdm(center_atoms):
+        for atom in center_atoms:
             num_of_neighbor(
                 nvt_run,
                 atom,
@@ -879,8 +879,8 @@ class MdRun:
         s_m_to_ms_cm = 10
         
         if msd_array is None:
-            msd = self.get_msd_all(species=species)
-            start, end, beta = choose_msd_fitting_region(msd, self.time_array[1:])
+            msd_array = self.get_msd_all(species=species)
+            start, stop, beta = choose_msd_fitting_region(msd_array, self.time_array[1:])
         
         if percentage != 1:
             d = (msd_array[start] - msd_array[stop]) / (start - stop) / self.time_step / 6 * a2 / ps
@@ -1056,7 +1056,7 @@ class MdRun:
         floating_atoms = nvt_run.select_atoms(self.select_dict.get(floating_atom))
         freqs = []
         hopping_distance = []
-        for ion in tqdm(floating_atoms[:]):
+        for ion in floating_atoms[:]:
             neighbor_trj = neighbor_distance(
                 nvt_run, ion, run_start, run_end, binding_site, self.select_dict, binding_cutoff
             )
@@ -1223,7 +1223,7 @@ class MdRun:
                 assert atom_type != "Not defined", f"{species} not defined in select_dict"
                 terminal_atom_type.append(atom_type)
         coord_list = np.array([[0, 0, 0]])
-        for atom in tqdm(floating_atoms[:]):
+        for atom in floating_atoms[:]:
             neighbor_trj = neighbor_distance(
                 nvt_run, atom, run_start, run_end, cluster_center, self.select_dict, binding_cutoff
             )

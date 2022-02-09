@@ -147,7 +147,7 @@ def calc_neigh_corr(
     acf_avg = {}
     for kw in distance_dict.keys():
         acf_all = []
-        for atom in tqdm(center_atoms[::]):
+        for atom in center_atoms[::]:
             distance = distance_dict.get(kw)
             assert distance is not None
             adjacency_matrix = neighbors_one_atom(

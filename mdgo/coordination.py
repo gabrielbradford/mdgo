@@ -537,7 +537,7 @@ def process_evol(
         center_atom: The solvation shell center atom.
     """
     center_atoms = nvt_run.select_atoms(select_dict.get(center_atom))
-    for atom in tqdm(center_atoms[::]):
+    for atom in center_atoms[::]:
         neighbor_trj = neighbor_distance(
             nvt_run, atom, run_start + lag, run_end - lag, binding_site, select_dict, binding_cutoff
         )
@@ -1061,7 +1061,7 @@ def concat_coord_array(
         and the total coordination number sequence in the specified frame range.
     """
     num_array = func(nvt_run, center_atoms[0], distance_dict, select_dict, run_start, run_end, **kwargs)
-    for atom in tqdm(center_atoms[1::]):
+    for atom in center_atoms[1::]:
         this_atom = func(nvt_run, atom, distance_dict, select_dict, run_start, run_end, **kwargs)
         for kw in num_array:
             num_array[kw] = np.concatenate((num_array.get(kw), this_atom.get(kw)), axis=0)
