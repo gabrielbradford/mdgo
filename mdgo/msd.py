@@ -17,6 +17,7 @@ from tqdm.notebook import trange
 
 from MDAnalysis import Universe, AtomGroup
 from MDAnalysis.core.groups import Atom
+from mdgo.conductivity import msd_fft
 
 __author__ = "Tingzheng Hou"
 __version__ = "1.0"
@@ -90,7 +91,7 @@ def _total_msd(nvt_run: Universe, run_start: int, run_end: int, select: str = "a
     return total_array
 
 
-def msd_from_frags(coord_list: List[np.ndarray], largest: int) -> np.ndarray:
+def msd_from_frags(coord_list: List[np.ndarray], run_end: int) -> np.ndarray:
     """
     Calculates the MSD using a list of fragments of trajectory with the conventional algorithm.
 
@@ -101,28 +102,16 @@ def msd_from_frags(coord_list: List[np.ndarray], largest: int) -> np.ndarray:
     Returns:
         The MSD series.
     """
-    msd_dict: Dict[Union[int, np.integer], np.ndarray] = {}
-    for state in coord_list:
-        n_frames = state.shape[0]
-        lag_times = np.arange(1, min(n_frames, largest))
-        for lag in lag_times:
-            disp = state[:-lag, :] - state[lag:, :]
-            sqdist = np.square(disp).sum(axis=-1)
-            if lag in msd_dict.keys():
-                msd_dict[lag] = np.concatenate((msd_dict[lag], sqdist), axis=0)
-            else:
-                msd_dict[lag] = sqdist
-    timeseries = []
-    time_range = len(msd_dict) + 1
-    msds_by_state = np.zeros(time_range)
-    for kw in range(1, time_range):
-        msds = msd_dict.get(kw)
-        assert msds is not None
-        msds_by_state[kw] = msds.mean()
-        timeseries.append(msds_by_state[kw])
-    timeseries = np.array(timeseries)
-    return timeseries
+    n_states = len(coord_list)
+    msds = np.zeros(shape=(n_states,run_end-1))
 
+    for i, state in enumerate(coord_list):
+        n_frames = state.shape[0]
+        msds[i,:n_frames-1] = msd_fft(np.array(state))[1:]
+
+    timeseries = np.true_divide(msds.sum(0), (msds!=0).sum(0))
+    timeseries = timeseries[~np.isnan(timeseries)]
+    return timeseries
 
 def states_coord_array(
     nvt_run: Universe,
@@ -227,7 +216,7 @@ def partial_msd(
     """
     free_coords = []
     attach_coords = []
-    for i in trange(len(atoms)):
+    for i in range(len(atoms)):
         attach_coord, free_coord = states_coord_array(
             nvt_run, atoms[i], select_dict, distance, run_start, run_end, binding_site=binding_site
         )
@@ -236,7 +225,7 @@ def partial_msd(
     attach_data = None
     free_data = None
     if len(attach_coords) > 0:
-        attach_data = msd_from_frags(attach_coords, largest)
+        attach_data = msd_from_frags(attach_coords, run_end)
     if len(free_coords) > 0:
-        free_data = msd_from_frags(free_coords, largest)
+        free_data = msd_from_frags(free_coords, run_end)
     return free_data, attach_data

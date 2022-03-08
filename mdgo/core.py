@@ -716,7 +716,7 @@ class MdRun:
                 item_list.append(kw)
                 cn_list.append(cn)
         df_dict = {item_name: item_list, "CN": cn_list}
-        df = pd.DataFrame(df_dict)
+        #df = pd.DataFrame(df_dict)
         return df
 
     def coordination_type(
@@ -753,10 +753,10 @@ class MdRun:
         for i in range(len(combined)):
             item = str(int(combined[i, 0]))
             item_list.append(item_dict.get(item))
-            percent_list.append(f"{(combined[i, 1] / combined[:, 1].sum() * 100):.4f}%")
+            percent_list.append((combined[i, 1] / combined[:, 1].sum() * 100))
         df_dict = {item_name: item_list, "Percentage": percent_list}
         df = pd.DataFrame(df_dict)
-        return df
+        return df_dict
 
     def coordination_specific(
         self,
@@ -880,7 +880,9 @@ class MdRun:
         
         if msd_array is None:
             msd_array = self.get_msd_all(species=species)
-            start, stop, beta = choose_msd_fitting_region(msd_array, self.time_array[1:])
+            
+        times = np.arange(1,len(msd_array)) * self.time_step
+        start, stop, beta = choose_msd_fitting_region(msd_array, times)
         
         if percentage != 1:
             d = (msd_array[start] - msd_array[stop]) / (start - stop) / self.time_step / 6 * a2 / ps
