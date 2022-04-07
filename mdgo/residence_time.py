@@ -86,7 +86,7 @@ def calc_acf(a_values: Dict[str, np.ndarray]) -> List[np.ndarray]:
     acfs = []
     for atom_id, neighbors in a_values.items():
         #  atom_id_numeric = int(re.search(r"\d+", atom_id).group())
-        acfs.append(acovf(neighbors, demean=False, unbiased=True, fft=True))
+        acfs.append(acovf(neighbors, demean=False, adjusted=True, fft=True))
     return acfs
 
 

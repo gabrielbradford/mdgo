@@ -1048,6 +1048,15 @@ def strip_zeros(items: Union[List[Union[str, float, int]], str]) -> Optional[Lis
     return new_items
 
 
+def get_avg_slope(msd, dt, del_t=2e-9):
+    """
+    Get the average slope of an MSD curve by taking the average slope at all del_t increments
+    """
+    shift = int(del_t/dt)
+    slope = 1/del_t * np.mean(msd[shift:] - msd[:-shift])
+    return slope
+
+
 if __name__ == "__main__":
     """
     litfsi = Molecule.from_file(

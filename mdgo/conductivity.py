@@ -11,6 +11,7 @@ import numpy as np
 from tqdm.notebook import tqdm
 from scipy import stats
 from MDAnalysis import Universe, AtomGroup
+from mdgo.util import get_avg_slope
 
 __author__ = "Kara Fong, Tingzheng Hou"
 __version__ = "1.0"
@@ -224,6 +225,7 @@ def conductivity_calculator(
     end: int,
     T: Union[int, float],
     units: str = "real",
+    average: bool = False,
 ) -> float:
     """Calculates the overall conductivity of the system
 
@@ -253,7 +255,11 @@ def conductivity_calculator(
     else:
         raise ValueError("units selection not supported")
 
-    slope, _, _, _, _ = stats.linregress(time_array[start:end], cond_array[start:end])
+    if average:
+        dt = (time_array[1] - time_array[0]) * 1e-12
+        slope = get_avg_slope(cond_array, dt) * 1e-12
+    else:
+        slope, _, _, _, _ = stats.linregress(time_array[start:end], cond_array[start:end])
     cond = slope / 6 / kb / T / v * convert
 
     print("Conductivity of " + name + ": " + str(cond) + " " + cond_units)

@@ -24,7 +24,8 @@ from mdgo.util import (
     res_dict_from_select_dict,
     res_dict_from_datafile,
     select_dict_from_resname,
-    create_position_arrays
+    create_position_arrays,
+    get_avg_slope
 )
 from mdgo.conductivity import calc_cond_msd, conductivity_calculator, choose_msd_fitting_region, get_beta, get_slope, compute_all_Lij
 from mdgo.coordination import (
@@ -405,7 +406,7 @@ class MdRun:
         ax.legend()
         fig.show()
 
-    def get_conductivity(self, start: int = -1, end: int = -1) -> float:
+    def get_conductivity(self, start: int = -1, end: int = -1, average=False) -> float:
         """Calculates the Green-Kubo (GK) conductivity given fitting region.
         If no fitting region (start, end) is provided, computes the optimal
         fitting region based on the portion of the MSD with greatest
@@ -431,7 +432,7 @@ class MdRun:
         print(f"End of linear fitting regime: {end} ({self.time_array[end]} {time_units})")
         print(f"Beta value (fit to MSD = t^\u03B2): {beta} (\u03B2 = 1 in the diffusive regime)")
         cond = conductivity_calculator(
-            self.time_array, self.cond_array, self.nvt_v, self.name, start, end, self.temp, self.units
+            self.time_array, self.cond_array, self.nvt_v, self.name, start, end, self.temp, self.units, average=average
         )
         return cond
 
@@ -922,7 +923,7 @@ class MdRun:
         return D_length, tau
     
     
-    def get_onsager_coefs(self):
+    def get_onsager_coefs(self, average=False):
         """Return list of Onsager coefficients for an electrolyte system. 
         List order: L++self, L--self, L++distinct, L--distinct, L+-
 
@@ -940,8 +941,12 @@ class MdRun:
 
         Ls = []
         for i, msd in enumerate(msds_all):
-            start, end, beta = choose_msd_fitting_region(msd, times)
-            l = get_slope(msd, start, end, times)
+            if average:
+                dt = times[1]-times[0]
+                l = get_avg_slope(msd,dt)
+            else: 
+                start, end, beta = choose_msd_fitting_region(msd, times)
+                l = get_slope(msd, start, end, times)
             if i == 2:
                 l = l - Ls[0]
             if i == 3:
@@ -1062,6 +1067,9 @@ class MdRun:
             neighbor_trj = neighbor_distance(
                 nvt_run, ion, run_start, run_end, binding_site, self.select_dict, binding_cutoff
             )
+            if len(neighbor_trj)==0:
+                continue
+
             if mode == "full":
                 sites, freq, steps = find_nearest(
                     neighbor_trj, self.time_step, binding_cutoff, hopping_cutoff, smooth=smooth
