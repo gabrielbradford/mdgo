@@ -17,12 +17,11 @@ INSTALL_REQUIRES = [
     "matplotlib",
     "scipy",
     "tqdm",
-    "pymatgen>=2022.0.17",
+    "pymatgen>=2022.7.8",
     "statsmodels",
     "pubchempy",
-    "MDAnalysis",
+    "MDAnalysis>=2.2.0",
     "selenium",
-    "typing-extensions",
 ]
 
 on_rtd = os.environ.get("READTHEDOCS") == "True"
@@ -58,9 +57,9 @@ if __name__ == "__main__":
         ],
         classifiers=[
             "Programming Language :: Python :: 3",
-            "Programming Language :: Python :: 3.7",
             "Programming Language :: Python :: 3.8",
             "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3.10",
             "Development Status :: 3 - Alpha",
             "Intended Audience :: Science/Research",
             "License :: OSI Approved :: MIT License",
@@ -79,5 +78,5 @@ if __name__ == "__main__":
                 "sphinx-autodoc-typehints",
             ],
         },
-        python_requires=">=3.7",
+        python_requires=">=3.8",
     )
